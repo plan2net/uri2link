@@ -17,7 +17,7 @@ use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication;
 use TYPO3\CMS\Frontend\Controller\TypoScriptFrontendController;
-use TYPO3\CMS\Frontend\Service\TypoLinkCodecService;
+use TYPO3\CMS\Core\LinkHandling\TypoLinkCodecService;
 use TYPO3\CMS\Frontend\Typolink\PageLinkBuilder;
 
 class UrlParser implements SingletonInterface
@@ -96,7 +96,6 @@ class UrlParser implements SingletonInterface
      * - TSFE->fe_user
      * - TSFE->sys_page
      * - TSFE->tmpl
-     * - TSFE->config
      * - TSFE->cObj
      *
      * So a link to a page can be generated.
@@ -119,7 +118,6 @@ class UrlParser implements SingletonInterface
         );
         $controller->determineId($originalRequest);
         $controller->calculateLinkVars($queryParams);
-        $controller->getConfigArray();
         $controller->newCObj($originalRequest);
         if (!isset($GLOBALS['TSFE']) || !$GLOBALS['TSFE'] instanceof TypoScriptFrontendController) {
             $GLOBALS['TSFE'] = $controller;
