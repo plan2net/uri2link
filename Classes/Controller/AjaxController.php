@@ -19,19 +19,18 @@ class AjaxController
         $response = [];
         $parser = GeneralUtility::makeInstance(UrlParser::class);
 
-        if (is_string($uri) && !empty($uri) && (StringUtility::beginsWith($uri, 'http') || StringUtility::beginsWith($uri, '/'))) {
+        if (is_string($uri) && !empty($uri) && (str_starts_with($uri, 'http') || str_starts_with($uri, '/'))) {
             try {
                 $newValue = $parser->parse($uri);
                 if ($newValue !== $uri) {
                     $response['transformed'] = $newValue;
                     $response['status'] = true;
                 }
-            } catch (\Exception $exception) {
+            } catch (\Throwable $exception) {
                 $response['false'] = true;
                 $response['message'] = $exception->getMessage();
             }
         }
         return new JsonResponse($response);
     }
-
 }
