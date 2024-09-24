@@ -21,8 +21,8 @@
 		"GPL-2.0-or-later"
 	],
 	"require": {
-		"typo3/cms-core": "^11.5.34 || ^12.4",
-		"typo3/cms-frontend": "^11.5.34 || ^12.4"
+		"typo3/cms-core": "^12.4",
+		"typo3/cms-frontend": "^12.4"
 	},
 	"autoload": {
 		"psr-4": {
