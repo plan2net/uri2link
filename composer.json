@@ -1,6 +1,7 @@
 {
 	"name": "georgringer/uri2link",
 	"type": "typo3-cms-extension",
+	"version": "12.0.0",
 	"description": "Convert external url like domain.tld/services to TYPO3 links if this is url is actually served by TYPO3",
 	"keywords": [
 		"TYPO3",
