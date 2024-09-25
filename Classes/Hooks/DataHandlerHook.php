@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace GeorgRinger\Uri2Link\Hooks;
 
 use GeorgRinger\Uri2Link\Service\UrlParser;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-class DataHandlerHook
+final class DataHandlerHook implements LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     protected UrlParser $urlParser;
 
     public function __construct()
@@ -28,10 +32,9 @@ class DataHandlerHook
     {
         foreach ($fieldArray as $fieldName => $fieldValue) {
             if ($this->fieldShouldBeProcessed($table, $fieldName, $fieldValue)) {
-                try {
-                    $fieldArray[$fieldName] = $this->urlParser->parse($fieldValue);
-                } catch (\Throwable $exception) {
-                    // do nothing
+                $parsedUri = $this->urlParser->parse($fieldValue);
+                if (null !== $parsedUri) {
+                    $fieldArray[$fieldName] = $parsedUri;
                 }
             }
         }

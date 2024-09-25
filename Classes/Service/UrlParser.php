@@ -4,127 +4,145 @@ declare(strict_types=1);
 
 namespace GeorgRinger\Uri2Link\Service;
 
-use TYPO3\CMS\Core\Context\Context;
-use TYPO3\CMS\Core\Domain\Repository\PageRepository;
-use TYPO3\CMS\Core\Error\Http\ServiceUnavailableException;
 use TYPO3\CMS\Core\Http\ServerRequest;
-use TYPO3\CMS\Core\Http\ServerRequestFactory;
-use TYPO3\CMS\Core\LinkHandling\PageLinkHandler;
-use TYPO3\CMS\Core\LinkHandling\TypoLinkCodecService;
+use TYPO3\CMS\Core\LinkHandling\LinkService;
 use TYPO3\CMS\Core\Routing\PageArguments;
+use TYPO3\CMS\Core\Routing\PageRouter;
 use TYPO3\CMS\Core\Routing\SiteMatcher;
 use TYPO3\CMS\Core\Routing\SiteRouteResult;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication;
-use TYPO3\CMS\Frontend\Controller\TypoScriptFrontendController;
-use TYPO3\CMS\Frontend\Typolink\PageLinkBuilder;
+use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Messaging\FlashMessage;
+use TYPO3\CMS\Core\Messaging\FlashMessageService;
+use TYPO3\CMS\Core\Routing\RouteNotFoundException;
+use TYPO3\CMS\Core\Type\ContextualFeedbackSeverity;
+use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 
 class UrlParser implements SingletonInterface
 {
-    protected PageLinkHandler $pageLinkHandler;
-    protected TypoLinkCodecService $typoLinkCodecService;
-
-    public function __construct()
+    public function parse(string $uri): ?string
     {
-        $this->pageLinkHandler = GeneralUtility::makeInstance(PageLinkHandler::class);
-        $this->typoLinkCodecService = GeneralUtility::makeInstance(TypoLinkCodecService::class);
-    }
+        $fakeHttpRequest = $this->getFakeHttpRequest($uri);
+        if (!$fakeHttpRequest instanceof ServerRequest) {
+            return null;
+        }
 
-    public function parse(string $uri): string
-    {
-        $uriParts = $this->typoLinkCodecService->decode($uri);
-        $uri = $uriParts['url'];
-        $request = new ServerRequest($uri, 'GET');
+        /** @psalm-suppress UndefinedInterfaceMethod */
+        $siteRouteResult = $this->getMatchingSiteRouteResult($fakeHttpRequest);
+        if (!$siteRouteResult instanceof SiteRouteResult) {
+            return null;
+        }
 
-        $siteMatcher = GeneralUtility::makeInstance(SiteMatcher::class);
-        $routeResult = $siteMatcher->matchRequest($request);
-
-        $site = $routeResult->getSite();
+        $site = $siteRouteResult->getSite();
         if (!$site instanceof Site) {
-            throw new \RuntimeException(sprintf('No site found for url: %s', $uri), 1568481276);
-        }
-        $pageArguments = $site->getRouter()->matchRequest($request, $routeResult);
-        $parameters = $this->buildLinkParameters($routeResult, $pageArguments);
-
-        if ($this->validateUrl($uri, $parameters, $site)) {
-            $uriParts['url'] = $this->pageLinkHandler->asString($parameters);
-
-            return $this->typoLinkCodecService->encode($uriParts);
+            return null;
         }
 
-        return $uri;
+        try {
+            $pageUri = $this->getPageUri($site, $fakeHttpRequest, $siteRouteResult,
+                $uri);
+            if (null !== $pageUri) {
+                return $pageUri;
+            }
+        } catch (RouteNotFoundException $e) {
+        }
+
+        return null;
     }
 
-    protected function buildLinkParameters(SiteRouteResult $routeResult, PageArguments $pageArguments): array
+    private function buildPageUrl(SiteRouteResult $routeResult, PageArguments $pageResult): string
     {
-        $parameters = [
-            'pageuid' => $pageArguments->getPageId(),
-            'pagetype' => '0' !== $pageArguments->getPageType() ? $pageArguments->getPageType() : ''
+        $language = $routeResult->getLanguage()->getLanguageId();
+        $language = (0 !== $language ? 'L=' . $language : '');
+        $query = $routeResult->getUri()->getQuery();
+        $arguments = $pageResult->getArguments();
+        $linkInformation = [
+            'type' => LinkService::TYPE_PAGE,
+            'pageuid' => $pageResult->getPageId(),
+            'parameters' => $language
+                . ($language && $query ? '&' : '') . $query
+                . (($language || $query) && $arguments ? '&' : '') . http_build_query($arguments),
+            'fragment' => $routeResult->getUri()->getFragment(),
         ];
-        $extraParams = [];
-        if (!empty($pageArguments->getStaticArguments())) {
-            $extraParams = $extraParams + $pageArguments->getStaticArguments();
-        }
-        if ($routeResult->getLanguage() && $routeResult->getLanguage()->getLanguageId() > 0) {
-            $extraParams['L'] = $routeResult->getLanguage()->getLanguageId();
+        // don't add page type 0 as we don't want type=0 in the URL
+        if ('' !== $pageResult->getPageType() && '0' !== $pageResult->getPageType()) {
+            $linkInformation['pagetype'] = $pageResult->getPageType();
         }
 
-        if (!empty($extraParams)) {
-            $parameters['parameters'] = http_build_query($extraParams, '', '&', PHP_QUERY_RFC3986);
-        }
-
-        return $parameters;
+        return GeneralUtility::makeInstance(LinkService::class)->asString($linkInformation);
     }
 
-    protected function validateUrl(string $uri, array $parameters, Site $site): bool
+    private function informUserOfChange(string $url, int $id, string $type): void
     {
-        $queryParams = [];
+        $pageRecord = BackendUtility::getRecord('pages', $id, 'title');
 
-        $controller = $this->bootFrontendController($site, $queryParams);
-        $pageLinkBuilder = GeneralUtility::makeInstance(PageLinkBuilder::class, $controller->cObj, $controller);
-        $newUrlResult = $pageLinkBuilder->build($parameters, 'fake', '', []);
-        $newUrlResultAbsolute = $pageLinkBuilder->build($parameters, 'fake', '', ['forceAbsoluteUrl' => true]);
+        /** @var FlashMessage $message */
+        $message = GeneralUtility::makeInstance(FlashMessage::class,
+            LocalizationUtility::translate('externalLinkChanged', 'uri2link',
+                [$url, $type, $pageRecord['title'], $id]),
+            '',
+            ContextualFeedbackSeverity::INFO,
+            true
+        );
 
-        return $newUrlResult->getUrl() === $uri || $newUrlResultAbsolute->getUrl() === $uri;
+        /** @var FlashMessageService $flashMessageService */
+        $flashMessageService = GeneralUtility::makeInstance(FlashMessageService::class);
+        $messageQueue = $flashMessageService->getMessageQueueByIdentifier();
+        $messageQueue->addMessage($message);
+    }
+
+    private function getFakeHttpRequest(string $fieldValue): ?ServerRequest
+    {
+        $fakeHttpRequest = null;
+        try {
+            // We need a stream and use the memory stream as a placeholder
+            /** @psalm-suppress InternalClass, InternalMethod */
+            $fakeHttpRequest = new ServerRequest($fieldValue, 'GET', 'php://memory');
+        } catch (\Throwable $e) {
+            // Probably an unsupported protocol (eg t3: or mailto:) or a broken URL
+            $this->logger->warning($e->getMessage(), [$fieldValue]);
+        }
+
+        return $fakeHttpRequest;
+    }
+
+    private function getMatchingSiteRouteResult(ServerRequest $fakeHttpRequest): ?SiteRouteResult
+    {
+        /** @var SiteMatcher $matcher */
+        $matcher = GeneralUtility::makeInstance(SiteMatcher::class);
+        /** @var SiteRouteResult $siteRouteResult */
+        /** @psalm-suppress InternalMethod */
+        $siteRouteResult = $matcher->matchRequest($fakeHttpRequest);
+
+        /** @psalm-suppress UndefinedInterfaceMethod */
+        $site = $siteRouteResult->getSite();
+        // Return no result for a NullSite (external URLs)
+        if ('#NULL' !== $site->getIdentifier()) {
+            return $siteRouteResult;
+        }
+
+        return null;
     }
 
     /**
-     * Finishing booting up TSFE, after that the following properties are available.
-     *
-     * Instantiating is done by the middleware stack (see Configuration/RequestMiddlewares.php)
-     *
-     * - TSFE->fe_user
-     * - TSFE->sys_page
-     * - TSFE->tmpl
-     * - TSFE->cObj
-     *
-     * So a link to a page can be generated.
-     *
-     * @throws ServiceUnavailableException
+     * @throws RouteNotFoundException
      */
-    protected function bootFrontendController(Site $site, array $queryParams): TypoScriptFrontendController
-    {
-        $originalRequest = $GLOBALS['TYPO3_REQUEST'] ?? ServerRequestFactory::fromGlobals();
-        $controller = GeneralUtility::makeInstance(
-            TypoScriptFrontendController::class,
-            GeneralUtility::makeInstance(Context::class),
-            $site,
-            $site->getDefaultLanguage(),
-            new PageArguments($site->getRootPageId(), '0', []),
-            GeneralUtility::makeInstance(FrontendUserAuthentication::class)
-        );
-        $controller->determineId($originalRequest);
-        $controller->calculateLinkVars($queryParams);
-        $controller->newCObj($originalRequest);
-        if (!isset($GLOBALS['TSFE']) || !$GLOBALS['TSFE'] instanceof TypoScriptFrontendController) {
-            $GLOBALS['TSFE'] = $controller;
-        }
-        if (!$GLOBALS['TSFE']->sys_page instanceof PageRepository) {
-            $GLOBALS['TSFE']->sys_page = GeneralUtility::makeInstance(PageRepository::class);
-        }
+    private function getPageUri(
+        Site $site,
+        ServerRequest $fakeHttpRequest,
+        SiteRouteResult $siteRouteResult,
+        string $fieldValue,
+    ): ?string {
+        /** @var PageRouter $pageRouter */
+        $pageRouter = GeneralUtility::makeInstance(PageRouter::class, $site);
+        /** @var PageArguments $pageRouteResult */
+        $pageRouteResult = $pageRouter->matchRequest($fakeHttpRequest, $siteRouteResult);
 
-        return $controller;
+        $this->informUserOfChange($fieldValue, $pageRouteResult->getPageId(),
+            LinkService::TYPE_PAGE);
+
+        return $this->buildPageUrl($siteRouteResult, $pageRouteResult);
     }
 }
