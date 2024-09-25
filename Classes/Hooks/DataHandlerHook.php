@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace GeorgRinger\Uri2Link\Hooks;
@@ -9,9 +10,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class DataHandlerHook
 {
-
-    /** @var UrlParser */
-    protected $urlParser;
+    protected UrlParser $urlParser;
 
     public function __construct()
     {
@@ -21,11 +20,9 @@ class DataHandlerHook
     /**
      * Fill path_segment/slug field with title
      *
-     * @param string $status
-     * @param string $table
+     * @param string     $status
+     * @param string     $table
      * @param string|int $id
-     * @param array $fieldArray
-     * @param DataHandler $parentObject
      */
     public function processDatamap_postProcessFieldArray($status, $table, $id, array &$fieldArray, DataHandler $parentObject): void
     {
@@ -33,7 +30,7 @@ class DataHandlerHook
             if ($this->fieldShouldBeProcessed($table, $fieldName, $fieldValue)) {
                 try {
                     $fieldArray[$fieldName] = $this->urlParser->parse($fieldValue);
-                } catch (\Exception $exception) {
+                } catch (\Throwable $exception) {
                     // do nothing
                 }
             }
@@ -61,5 +58,4 @@ class DataHandlerHook
 
         return false;
     }
-
 }

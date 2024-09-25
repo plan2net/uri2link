@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace GeorgRinger\Uri2Link\Service;
@@ -9,6 +10,7 @@ use TYPO3\CMS\Core\Error\Http\ServiceUnavailableException;
 use TYPO3\CMS\Core\Http\ServerRequest;
 use TYPO3\CMS\Core\Http\ServerRequestFactory;
 use TYPO3\CMS\Core\LinkHandling\PageLinkHandler;
+use TYPO3\CMS\Core\LinkHandling\TypoLinkCodecService;
 use TYPO3\CMS\Core\Routing\PageArguments;
 use TYPO3\CMS\Core\Routing\SiteMatcher;
 use TYPO3\CMS\Core\Routing\SiteRouteResult;
@@ -17,7 +19,6 @@ use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Frontend\Authentication\FrontendUserAuthentication;
 use TYPO3\CMS\Frontend\Controller\TypoScriptFrontendController;
-use TYPO3\CMS\Core\LinkHandling\TypoLinkCodecService;
 use TYPO3\CMS\Frontend\Typolink\PageLinkBuilder;
 
 class UrlParser implements SingletonInterface
@@ -49,6 +50,7 @@ class UrlParser implements SingletonInterface
 
         if ($this->validateUrl($uri, $parameters, $site)) {
             $uriParts['url'] = $this->pageLinkHandler->asString($parameters);
+
             return $this->typoLinkCodecService->encode($uriParts);
         }
 
@@ -59,7 +61,7 @@ class UrlParser implements SingletonInterface
     {
         $parameters = [
             'pageuid' => $pageArguments->getPageId(),
-            'pagetype' => $pageArguments->getPageType() !== '0' ? $pageArguments->getPageType() : ''
+            'pagetype' => '0' !== $pageArguments->getPageType() ? $pageArguments->getPageType() : ''
         ];
         $extraParams = [];
         if (!empty($pageArguments->getStaticArguments())) {
@@ -100,9 +102,6 @@ class UrlParser implements SingletonInterface
      *
      * So a link to a page can be generated.
      *
-     * @param Site $site
-     * @param array $queryParams
-     * @return TypoScriptFrontendController
      * @throws ServiceUnavailableException
      */
     protected function bootFrontendController(Site $site, array $queryParams): TypoScriptFrontendController
@@ -114,7 +113,7 @@ class UrlParser implements SingletonInterface
             $site,
             $site->getDefaultLanguage(),
             new PageArguments($site->getRootPageId(), '0', []),
-           GeneralUtility::makeInstance(FrontendUserAuthentication::class)
+            GeneralUtility::makeInstance(FrontendUserAuthentication::class)
         );
         $controller->determineId($originalRequest);
         $controller->calculateLinkVars($queryParams);
@@ -125,6 +124,7 @@ class UrlParser implements SingletonInterface
         if (!$GLOBALS['TSFE']->sys_page instanceof PageRepository) {
             $GLOBALS['TSFE']->sys_page = GeneralUtility::makeInstance(PageRepository::class);
         }
+
         return $controller;
     }
 }

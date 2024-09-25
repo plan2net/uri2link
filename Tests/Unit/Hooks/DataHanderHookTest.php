@@ -1,9 +1,10 @@
 <?php
+
 declare(strict_types=1);
 
 namespace FriendsOfTypo3\TtAddress\Tests\Unit\Domain\Model;
 
-/**
+/*
  * This file is part of the "uri2link" Extension for TYPO3 CMS.
  *
  * For the full copyright and license information, please read the
@@ -17,7 +18,6 @@ use TYPO3\TestingFramework\Core\BaseTestCase;
 
 class DataHanderHookTest extends BaseTestCase
 {
-
     protected function setUp(): void
     {
         $GLOBALS['TCA']['fakeTable1']['columns']['field_1']['config']['renderType'] = 'inputLink';
@@ -35,10 +35,8 @@ class DataHanderHookTest extends BaseTestCase
 
     /**
      * @test
+     *
      * @dataProvider fieldProcessingWorksDataProvider
-     * @param string $fieldName
-     * @param mixed $fieldValue
-     * @param bool $expected
      */
     public function fieldProcessingWorks(string $tableName, string $fieldName, $fieldValue, bool $expected): void
     {
@@ -78,5 +76,4 @@ class DataHanderHookTest extends BaseTestCase
         ];
         $subject->processDatamap_postProcessFieldArray('update', 'fakeTable1', 123, $fields, $mockedDataHandler);
     }
-
 }

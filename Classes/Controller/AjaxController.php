@@ -1,18 +1,16 @@
 <?php
+
 declare(strict_types=1);
 
 namespace GeorgRinger\Uri2Link\Controller;
-
 
 use GeorgRinger\Uri2Link\Service\UrlParser;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Core\Utility\StringUtility;
 
 class AjaxController
 {
-
     public function checkAction(ServerRequestInterface $request): JsonResponse
     {
         $uri = $request->getQueryParams()['uri'];
@@ -31,6 +29,7 @@ class AjaxController
                 $response['message'] = $exception->getMessage();
             }
         }
+
         return new JsonResponse($response);
     }
 }
