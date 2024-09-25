@@ -50,7 +50,7 @@ class DataHandlerHook
             return false;
         }
 
-        if (($GLOBALS['TCA'][$tableName]['columns'][$fieldName]['config']['renderType'] ?? '') === 'inputLink'
+        if (($GLOBALS['TCA'][$tableName]['columns'][$fieldName]['config']['type'] ?? '') === 'link'
             && (str_starts_with($fieldValue, 'http') || str_starts_with($fieldValue, '/'))
         ) {
             return true;
