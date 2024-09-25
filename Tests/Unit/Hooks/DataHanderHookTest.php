@@ -40,11 +40,11 @@ class DataHanderHookTest extends BaseTestCase
      */
     public function fieldProcessingWorks(string $tableName, string $fieldName, $fieldValue, bool $expected): void
     {
-        $subject = $this->getAccessibleMock(DataHandlerHook::class, ['dummy'], [], '', false);
+        $subject = $this->getAccessibleMock(DataHandlerHook::class, null, [], '', false);
         $this->assertEquals($expected, $subject->_call('fieldShouldBeProcessed', $tableName, $fieldName, $fieldValue));
     }
 
-    public function fieldProcessingWorksDataProvider(): array
+    public static function fieldProcessingWorksDataProvider(): array
     {
         return [
             'link field' => ['fakeTable1', 'field_1', 'http://domain.tld', true],
@@ -66,9 +66,9 @@ class DataHanderHookTest extends BaseTestCase
     {
         $mockedUrlParser = $this->getAccessibleMock(UrlParser::class, ['parse'], [], '', false);
         $mockedUrlParser->expects($this->once())->method('parse');
-        $mockedDataHandler = $this->getAccessibleMock(DataHandler::class, ['dummy'], [], '', false);
+        $mockedDataHandler = $this->getAccessibleMock(DataHandler::class, null, [], '', false);
 
-        $subject = $this->getAccessibleMock(DataHandlerHook::class, ['dummy'], [], '', false);
+        $subject = $this->getAccessibleMock(DataHandlerHook::class, null, [], '', false);
         $subject->_set('urlParser', $mockedUrlParser);
 
         $fields = [
