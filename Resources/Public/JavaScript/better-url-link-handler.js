@@ -10,9 +10,9 @@
  *
  * The TYPO3 project - inspiring people to share!
  */
-import LinkBrowser from '@typo3/backend/link-browser.js';
-import RegularEvent from '@typo3/core/event/regular-event.js';
-import AjaxRequest from "@typo3/core/ajax/ajax-request.js";
+import LinkBrowser from '@typo3/backend/link-browser';
+import RegularEvent from '@typo3/core/event/regular-event';
+import AjaxRequest from '@typo3/core/ajax/ajax-request';
 
 class UrlLinkHandler {
     constructor () {
