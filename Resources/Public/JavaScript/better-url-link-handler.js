@@ -12,13 +12,14 @@
  */
 import LinkBrowser from '@typo3/backend/link-browser.js';
 import RegularEvent from '@typo3/core/event/regular-event.js';
-import AjaxRequest from "@typo3/core/ajax/ajax-request.js";
+import AjaxRequest from '@typo3/core/ajax/ajax-request.js';
 
 class UrlLinkHandler {
     constructor () {
-        new RegularEvent('submit', ((e, r) => {
-            e.preventDefault();
-            const url = r.querySelector('[name="lurl"]').value.trim();
+        new RegularEvent('submit', ((evt, targetEl) => {
+            evt.preventDefault();
+            const inputField = targetEl.querySelector('[name="lurl"]');
+            const url = inputField.value.trim();
 
             new AjaxRequest(TYPO3.settings.ajaxUrls.uri2link_check)
                 .withQueryArguments({uri: url})
