@@ -1,5 +1,0 @@
-TCEMAIN.linkHandler {
-    url {
-        handler = GeorgRinger\Uri2Link\LinkHandling\UrlLinkHandler
-    }
-}
